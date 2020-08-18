@@ -1,0 +1,186 @@
+---
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: od-repo
+spec:
+  type: git
+  params:
+    - name: url
+      value: https://github.com/heyselbi/inference.git
+---
+apiVersion: tekton.dev/v1alpha1
+kind: PipelineResource
+metadata:
+  name: od-build-image
+spec:
+  type: image
+  params:
+    - name: url
+      value: quay.io/selbi/inf-test
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: od-runtime-pvc 
+spec:
+  accessModes:
+    - ReadWriteMany 
+  resources:
+    requests:
+      storage: 16Gi
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: od-pvc 
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  volumeMode: Filesystem
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: od-buildah
+spec:
+  inputs:
+    params:
+    - name: BUILDER_IMAGE
+      description: The location of the buildah builder image.
+      default: quay.io/buildah/stable
+    - name: DOCKERFILE
+      description: Path to the Dockerfile to build.
+      default: v0.5/classification_and_detection/Dockerfile.gpu
+    - name: TLSVERIFY
+      description: Verify the TLS on the registry endpoint (for push/pull to a non-TLS registry)
+      default: "false"
+
+    resources:
+    - name: source
+      type: git
+
+  outputs:
+    resources:
+    - name: image
+      type: image
+
+  steps:
+  - name: build
+    image: $(inputs.params.BUILDER_IMAGE)
+    workingDir: /workspace/source
+    volumeMounts:
+    - name: varlibcontainers
+      mountPath: /var/lib/containers
+    command: ["buildah", "bud", '--storage-driver=overlay', '--tls-verify=$(inputs.params.TLSVERIFY)', '-f', '$(inputs.params.DOCKERFILE)', '-t', '$(outputs.resources.image.url)', '.']
+    securityContext:
+      privileged: true
+  - name: push
+    image: $(inputs.params.BUILDER_IMAGE)
+    workingDir: /workspace/source
+    volumeMounts:
+    - name: varlibcontainers
+      mountPath: /var/lib/containers
+    command: ['buildah', 'push', '--tls-verify=$(inputs.params.TLSVERIFY)', '$(outputs.resources.image.url)', '$(outputs.resources.image.url)']
+    securityContext:
+      privileged: true
+
+  volumes:
+  - name: varlibcontainers
+    emptyDir: {}
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: od-dataset
+spec:
+  inputs:
+    resources:
+    - name: image
+      type: image
+  outputs:
+    resources:
+    - name: image
+      type: image
+  steps:
+    - name: download
+      image: $(inputs.resources.image.url)
+      workingDir: /root/v0.5/classification_and_detection/
+      volumeMounts:
+        - name: od-dataset-volume
+          mountPath: /root/v0.5/classification_and_detection/dataset
+      securityContext:
+        privileged: true
+      command: ["/bin/bash", './download_dataset.sh']
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Task
+metadata:
+  name: od-run
+spec:
+  inputs:
+    resources:
+    - name: image
+      type: image
+  steps:
+    - name: run
+      image: $(inputs.resources.image.url)
+      workingDir: /root/v0.5/classification_and_detection/
+      volumeMounts:
+        - name: od-dataset-volume
+          mountPath: /root/v0.5/classification_and_detection//dataset
+        - name: od-runtime-volume
+          mountPath: /dev/shm
+      securityContext:
+        privileged: true
+      command: ["/bin/bash", "./run_local.sh", "pytorch", "ssd-resnet34", "gpu"]
+---
+apiVersion: tekton.dev/v1alpha1
+kind: Pipeline
+metadata:
+  name: inf-test-pl
+spec:
+  resources:
+    - name: repo
+      type: git
+    - name: build-image
+      type: image 
+  tasks:
+    - name: build
+      taskRef:
+        name: od-buildah
+        kind: Task
+      resources:
+        inputs:
+          - name: source
+            resource: repo
+        outputs:
+          - name: image
+            resource: build-image
+    - name: dataset
+      taskRef:
+        name: od-dataset
+        kind: Task
+      resources:
+        inputs:
+          - name: image
+            resource: build-image
+        outputs:
+          - name: image
+            resource: build-image
+      runAfter:
+        - build
+    - name: run
+      taskRef:
+        name: od-run
+        kind: Task
+      resources:
+        inputs:
+          - name: image
+            resource: build-image
+      runAfter:
+        - dataset
