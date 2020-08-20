@@ -93,12 +93,11 @@ Step `push`, `download` and `run` could be checked similarly. Remember that `dow
 
 Once pipeline run is complete, check the logs of `run` step and at the end, it should look similar to this:
 ```bash
-Shape: (1500, 1500) Device: /gpu:0
-Time taken: 0:00:02.346886
+TBD
 ```
 The pipeline-run has been completed! All tasks, pipelinerources, pipeline, pipeline-run and pvc can then be deleted if not needed anymore. ie:
 ```bash
-oc delete tasks --all -n matmul
+oc delete tasks --all -n inference
 ```
 
 ## Details of the Default Benchmark and How to Choose a Different one
@@ -134,3 +133,5 @@ For example:
 
 "./run_local.sh", "tf", "resnet50", "gpu"
 ```
+
+The `dataset` task downloads the necessary datasets for all benchmark models mentioned in `classification_and_detection`.
