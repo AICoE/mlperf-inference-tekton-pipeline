@@ -47,14 +47,43 @@ And then execute the `setup_and_start.sh` script. The script won't run if previo
 
 The following outputs are expected upon execution of commands inside `setup_and_run.sh`:
 
+Execution of `oc new-project inference` creates a new project called inference and shows the following:
+```bash
+Now using project "inference" on server "https://XXX".
+
+You can add applications to this project with the 'new-app' command. For example, try:
+
+    oc new-app centos/ruby-25-centos7~https://github.com/sclorg/ruby-ex.git
+
+to build a new example application in Ruby.
+```
+
+Execution of `oc apply secret.yml` creates the secret and outputs the following:
+```bash
+secret/username-secret created
+```
+
+Execution of `oc create sa mlperf` and `oc edit sa mlperf` creates a service account called *mlperf* and updates its secrets, outputting the following:
+```bash
+serviceaccount/mlperf created
+serviceaccount/mlperf edited
+```
+
+Execution of both `oc adm policy ...` updates the security context constraints for building and pushing the images in containers and outputs:
+```bash
+scc "privileged" added to: ["system:serviceaccount:inference:mlperf"]
+scc "anyuid" added to: ["system:serviceaccount:inference:mlperf"]
+```
+
 Execution of `oc apply -f full-pipeline.yml` uploads all pipeline resources, tasks, pipeline and request for persistent volume claim and shows the following:
 ```bash
-pipelineresource.tekton.dev/mm-repo created
-pipelineresource.tekton.dev/mm-build-image created
-persistentvolumeclaim/mm-runtime-pvc created
-task.tekton.dev/mm-buildah created
-task.tekton.dev/mm-run created
-pipeline.tekton.dev/matmul-pl created
+pipelineresource.tekton.dev/inf-repo created
+pipelineresource.tekton.dev/inf-build-image created
+persistentvolumeclaim/inf-pvc created
+task.tekton.dev/inf-build created
+task.tekton.dev/inf-dataset created
+task.tekton.dev/inf-run created
+pipeline.tekton.dev/inference-pl createdoc 
 ```
 
 Execution of `oc apply -f pipeline-run.yml` runs the pipeline and shows the following:
@@ -65,7 +94,11 @@ The running of pipeline can be confirmed with:
 ```bash
 oc get pr
 ```
-
+which outputs:
+```bash
+NAME           SUCCEEDED   REASON    STARTTIME   COMPLETIONTIME
+inference-pr   Unknown     Running   6m    
+```
 
 ## Checking the pipeline-run progress
 
@@ -91,14 +124,36 @@ And logs should appear. Remember to change the pod name to the one generated on 
 
 Step `push`, `download` and `run` could be checked similarly. Remember that `download` and `run` steps each will have a different pod and a pod name.
 
-Once pipeline run is complete, check the logs of `run` step and at the end, it should look similar to this:
+Once pipeline run is complete, `oc get pods` outputs:
 ```bash
 TBD
 ```
-The pipeline-run has been completed! All tasks, pipelinerources, pipeline, pipeline-run and pvc can then be deleted if not needed anymore. ie:
+
+The logs of `run` step and at the end should look similar to this:
 ```bash
-oc delete tasks --all -n inference
+STARTING RUN AT 2020-08-21 04:07:24 PM
+python_main
+INFO:main:Namespace(accuracy=False, backend='onnxruntime', cache=0, config='/root/v0.5/mlperf.conf', count=None, data_format='NHWC', dataset='coco-300', dataset_list=None, dataset_path='/root/v0.5/classification_and_detection/dataset/dataset-coco-2017-val', find_peak_performance=False, inputs=None, max_batchsize=32, max_latency=None, model='/root/v0.5/classification_and_detection/dataset/ssd_mobilenet_v1_coco_2018_01_28.onnx', model_name='ssd-mobilenet', output='/root/output/onnxruntime-cpu/ssd-mobilenet', outputs=['num_detections:0', 'detection_boxes:0', 'detection_scores:0', 'detection_classes:0'], profile='ssd-mobilenet-onnxruntime', qps=None, samples_per_query=None, scenario='SingleStream', threads=64, time=None)
+INFO:coco:loaded 5000 images, cache=0, took=35.7sec
+2020-08-21 16:08:00.490358041 [W:onnxruntime:, graph.cc:863 Graph] Initializer zero__164 appears in graph inputs and will not be treated as constant value/weight. This may prevent some of the graph optimizations, like const folding. Move it out of graph inputs if there is no need to override it, by either re-generating the model with latest exporter/converter or with the tool onnxruntime/tools/python/remove_initializer_from_input.py.
+...
+...
+...
+/root/v0.5/classification_and_detection/python/coco.py:115: VisibleDeprecationWarning: Creating an ndarray from ragged nested sequences (which is a list-or-tuple of lists-or-tuples-or ndarrays with different lengths or shapes) is deprecated. If you meant to do this, you must specify 'dtype=object' when creating the ndarray
+  self.label_list = np.array(self.label_list)
+INFO:main:starting TestScenario.SingleStream
+TestScenario.SingleStream qps=2.81, mean=0.3561, time=364.836, queries=1024, tiles=50.0:0.3068,80.0:0.4127,90.0:0.4998,95.0:0.5796,99.0:0.6926,99.9:0.8962
+ENDING RUN AT 2020-08-21 04:14:09 PM
 ```
+
+To determine the duration of the inference benchmark, take the difference between **STARTING RUN AT** and **ENDING RUN AT**.
+
+The pipeline-run has been completed! All tasks, pipelinerources, pipeline, pipeline-run and pvc can then be deleted if not needed anymore by executing `cleanup.sh`, which will output:
+```bash
+TBD
+```
+
+If the project is not needed anymore, it can be deleted with `oc delete project inference`. To delete all remaining logs from running containers, execute `docker system prune --all` and then `y`.
 
 ## Details of the Default Benchmark and How to Choose a Different one
 
