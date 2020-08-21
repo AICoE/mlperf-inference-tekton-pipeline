@@ -7,7 +7,7 @@ spec:
   type: git
   params:
     - name: url
-      value: https://github.com/heyselbi/inference.git
+      value: https://github.com/AICoE/inference.git
 ---
 apiVersion: tekton.dev/v1alpha1
 kind: PipelineResource
@@ -22,25 +22,13 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: od-runtime-pvc 
-spec:
-  accessModes:
-    - ReadWriteMany 
-  resources:
-    requests:
-      storage: 16Gi
-  volumeMode: Filesystem
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
   name: od-pvc 
 spec:
   accessModes:
     - ReadWriteMany
   resources:
     requests:
-      storage: 100Gi
+      storage: 300Gi
   volumeMode: Filesystem
 ---
 apiVersion: tekton.dev/v1alpha1
@@ -55,7 +43,7 @@ spec:
       default: quay.io/buildah/stable
     - name: DOCKERFILE
       description: Path to the Dockerfile to build.
-      default: v0.5/classification_and_detection/Dockerfile.gpu
+      default: v0.5/classification_and_detection/Dockerfile.cpu
     - name: TLSVERIFY
       description: Verify the TLS on the registry endpoint (for push/pull to a non-TLS registry)
       default: "false"
@@ -132,12 +120,17 @@ spec:
       workingDir: /root/v0.5/classification_and_detection/
       volumeMounts:
         - name: od-dataset-volume
-          mountPath: /root/v0.5/classification_and_detection//dataset
-        - name: od-runtime-volume
-          mountPath: /dev/shm
+          mountPath: /root/v0.5/classification_and_detection/dataset
       securityContext:
         privileged: true
-      command: ["/bin/bash", "./run_local.sh", "pytorch", "ssd-resnet34", "gpu"]
+      command: ["./run_local.sh", "onnxruntime", "ssd-mobilenet", "cpu", "--config", "/root/v0.5/mlperf.conf"]
+      resources:
+        requests:
+          memory: 100Gi
+          cpu: 12
+        limits:
+          memory: 200Gi
+          cpu: 16
 ---
 apiVersion: tekton.dev/v1alpha1
 kind: Pipeline
