@@ -5,7 +5,7 @@ The source of MLPerf Inference Benchmark Implementation is located at https://gi
 The version of inference benchmark is v0.5 and the list of benchmark types tested are described under "classification_and_detection".
 The `Dockerfile.cpu` and `run_local.sh` have been modified and `download_data.sh` has been created for this pipeline. All the final modified files are located at https://github.com/AICoE/inference.git . This is where the PipelineResources point at too.
 
-Here, a tekton pipeline that will build the image from Dockerfile, push the image to quay registry, pull that image, download model and data and run the benchmark on CPU. Part of the pipeline yamls were adopted from [AICoE](https://github.com/AICoE/mlperf-tekton/tree/master/object_detection).
+This is a tekton pipeline that builds the image from Dockerfile, pushes the image to quay registry, pulls that image, downloads model and data and runs the benchmark on CPU. Part of the pipeline yamls were adopted from [AICoE](https://github.com/AICoE/mlperf-tekton/tree/master/object_detection).
 
 Pipeline consists of three tasks: `inf-buildah`, `inf-dataset` and `inf-run`. `inf-buildah` consists of two steps: `build` and `push`, while `inf-dataset` and `inf-run` consist of only one step: `download` and `run`, respectively.
 
