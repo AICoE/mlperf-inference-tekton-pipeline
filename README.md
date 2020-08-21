@@ -7,9 +7,9 @@ The `Dockerfile.cpu` and `run_local.sh` have been modified and `download_data.sh
 
 Here, a tekton pipeline that will build the image from Dockerfile, push the image to quay registry, pull that image, download model and data and run the benchmark on CPU. Part of the pipeline yamls were adopted from [AICoE](https://github.com/AICoE/mlperf-tekton/tree/master/object_detection).
 
-Pipeline consists of three tasks: `buildah`, `dataset` and `run`. `buildah` consists of two steps: `build` and `push`, while `dataset` and `run` consist of only one step: `download` and `run`, respectively.
+Pipeline consists of three tasks: `inf-buildah`, `inf-dataset` and `inf-run`. `inf-buildah` consists of two steps: `build` and `push`, while `inf-dataset` and `inf-run` consist of only one step: `download` and `run`, respectively.
 
-When the pipeline is run, it first creates one pod for `buildah` task, which will have two containers initiated: one for `build` step and another for `push` step. After `buildah` task is complete, another pod will be created for `dataset` task with `download` container. Once `dataset` task is complete, the pod for `run` task with `run` container will be initiated. Please note that there would be other containers created within a pod for each task. They are intended for pulling images and other background processes.
+When the pipeline is run, it first creates one pod for `inf-buildah` task, which will have two containers initiated: one for `build` step and another for `push` step. After `inf-buildah` task is complete, another pod will be created for `inf-dataset` task with `download` container. Once `inf-dataset` task is complete, the pod for `inf-run` task with `run` container will be initiated. Please note that there would be other containers created within a pod for each task. They are intended for pulling images and other background processes.
 
 ## Requirements 
 **Openshift Container Platform (tested on 3.11 only, but should work on 4.x as well)**
@@ -43,7 +43,17 @@ git clone https://github.com/AICoE/mlperf-inference-tekton-pipeline.git
 
 Now let's set up the Quay registry access for the service account. In quay registry, click on your username --> Account Settings --> robot icon on the left. Click on the robot account name that was set up earlier and go to "Kubernetes Secret". Click on "View *username*-build-secret.yml". Copy the text into your local machine where benchmark will be run via `vi secret.yml`. 
 
-And then execute the `setup_and_start.sh` script. The script won't run if previous steps were incomplete. The script will create a new project called *inference*, setup the image push privileges (ie. apply the secret file, create serviceaccount called *mlperf*, incorporate the secret into serviceaccount and grant necessary scc privileges), request storage (ie. PersistentVolumeClaim), upload all pipelineresources, tasks and pipeline. It will then run the pipeline (ie. execute PipelineRun).
+And then execute the `setup_and_start.sh` script:
+```bash
+./setup_and_start.sh
+```
+If it says `-bash: ./setup_and_start.sh: Permission denied`, execute the following commands to give permission:
+```bash
+chmod +u setup_and_start.sh
+chmod +x setup_and_start.sh
+```
+
+The script won't run if previous steps (ie. quay and secret.yml) were incomplete. The script will create a new project called *inference*, setup the image push privileges (ie. apply the secret file, create serviceaccount called *mlperf*, incorporate the secret into serviceaccount and grant necessary scc privileges), request storage (ie. PersistentVolumeClaim), upload all pipelineresources, tasks and pipeline. It will then run the pipeline (ie. execute PipelineRun).
 
 The following outputs are expected upon execution of commands inside `setup_and_run.sh`:
 
@@ -126,7 +136,10 @@ Step `push`, `download` and `run` could be checked similarly. Remember that `dow
 
 Once pipeline run is complete, `oc get pods` outputs:
 ```bash
-TBD
+NAME                                  READY     STATUS      RESTARTS   AGE
+inference-pr-build-5gkgd-pod-b4q9n     0/5       Completed   0          2h
+inference-pr-dataset-whn25-pod-5wvg2   0/3       Completed   0          2h
+inf-test-pr-run-vxj5z-pod-sfkbv       0/1       Completed   0          2h
 ```
 
 The logs of `run` step and at the end should look similar to this:
@@ -148,16 +161,27 @@ ENDING RUN AT 2020-08-21 04:14:09 PM
 
 To determine the duration of the inference benchmark, take the difference between **STARTING RUN AT** and **ENDING RUN AT**.
 
-The pipeline-run has been completed! All tasks, pipelinerources, pipeline, pipeline-run and pvc can then be deleted if not needed anymore by executing `cleanup.sh`, which will output:
+The pipeline-run has been completed! All tasks, pipelinerources, pipeline, pipeline-run and pvc can then be deleted if not needed anymore by executing `cleanup.sh`:
 ```bash
-TBD
+./cleanup.sh
+```
+which will output:
+```bash
+task.tekton.dev "inf-build" deleted
+task.tekton.dev "inf-dataset" deleted
+task.tekton.dev "inf-run" deleted
+pipeline.tekton.dev "inference-pl" deleted
+pipelineresource.tekton.dev "inf-build-image" deleted
+pipelineresource.tekton.dev "inf-repo" deleted
+pipelinerun.tekton.dev "inference-pr" deleted
+persistentvolumeclaim "inf-pvc" deleted
 ```
 
 If the project is not needed anymore, it can be deleted with `oc delete project inference`. To delete all remaining logs from running containers, execute `docker system prune --all` and then `y`.
 
 ## Details of the Default Benchmark and How to Choose a Different one
 
-The benchmark that is executed by default is the *ssd-mobilenet 300x300* with the command `./run_local.sh pytorch ssd-mobilenet gpu` in the `run` task.
+The benchmark that is executed by default is the *ssd-mobilenet 300x300* with the command `./run_local.sh onnxruntime ssd-mobilenet cpu` in the `inf-run` task.
 
 Currently, use of a different benchmarking model requires manual change of the `download_dataset.sh` and `full-pipeline.yml` scripts. However, this will also be automated in a near future. 
 
@@ -167,13 +191,13 @@ Now, choose a model with framework of interest (ie. tf or pytorch) [here](https:
 
 Open `download_dataset.sh` file in the forked repository and edit the file. Change the link of the below line to the one that was copied earlier:
 ```bash
-wget -q https://zenodo.org/record/3239977/files/ssd_mobilenet_v1.pytorch
+wget -q https://zenodo.org/record/3163026/files/ssd_mobilenet_v1_coco_2018_01_28.onnx
 ```
 Commit changes.
 
 In the `full-pipeline.yml`, scroll down to `run` task and change the `command` line:
 ```bash
-command: ["/bin/bash", "./run_local.sh", "pytorch", "ssd-mobilenet", "gpu"]
+command: ["./run_local.sh", "onnxruntime", "ssd-mobilenet", "cpu"]
 ```
 to the model and framework of interest. The format is:
 ```bash
@@ -182,11 +206,6 @@ to the model and framework of interest. The format is:
 backend is one of [tf|onnxruntime|pytorch|tflite]
 model is one of [resnet50|mobilenet|ssd-mobilenet|ssd-resnet34]
 device is one of [cpu|gpu]
-
-
-For example:
-
-"./run_local.sh", "tf", "resnet50", "gpu"
 ```
 
-The `dataset` task downloads the necessary datasets for all benchmark models mentioned in `classification_and_detection`.
+The `inf-dataset` task downloads the necessary datasets for all benchmark models mentioned in `classification_and_detection`.
