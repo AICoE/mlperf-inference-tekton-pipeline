@@ -2,7 +2,7 @@
 apiVersion: tekton.dev/v1alpha1
 kind: PipelineResource
 metadata:
-  name: od-repo
+  name: inf-repo
 spec:
   type: git
   params:
@@ -12,17 +12,17 @@ spec:
 apiVersion: tekton.dev/v1alpha1
 kind: PipelineResource
 metadata:
-  name: od-build-image
+  name: inf-build-image
 spec:
   type: image
   params:
     - name: url
-      value: quay.io/selbi/inf-test
+      value: quay.io/username/inference
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: od-pvc 
+  name: inf-pvc 
 spec:
   accessModes:
     - ReadWriteMany
@@ -34,7 +34,7 @@ spec:
 apiVersion: tekton.dev/v1alpha1
 kind: Task
 metadata:
-  name: od-buildah
+  name: inf-build
 spec:
   inputs:
     params:
@@ -84,7 +84,7 @@ spec:
 apiVersion: tekton.dev/v1alpha1
 kind: Task
 metadata:
-  name: od-dataset
+  name: inf-dataset
 spec:
   inputs:
     resources:
@@ -99,7 +99,7 @@ spec:
       image: $(inputs.resources.image.url)
       workingDir: /root/v0.5/classification_and_detection/
       volumeMounts:
-        - name: od-dataset-volume
+        - name: inf-volume
           mountPath: /root/v0.5/classification_and_detection/dataset
       securityContext:
         privileged: true
@@ -108,7 +108,7 @@ spec:
 apiVersion: tekton.dev/v1alpha1
 kind: Task
 metadata:
-  name: od-run
+  name: inf-run
 spec:
   inputs:
     resources:
@@ -119,7 +119,7 @@ spec:
       image: $(inputs.resources.image.url)
       workingDir: /root/v0.5/classification_and_detection/
       volumeMounts:
-        - name: od-dataset-volume
+        - name: inf-volume
           mountPath: /root/v0.5/classification_and_detection/dataset
       securityContext:
         privileged: true
@@ -135,7 +135,7 @@ spec:
 apiVersion: tekton.dev/v1alpha1
 kind: Pipeline
 metadata:
-  name: inf-test-pl
+  name: inference-pl
 spec:
   resources:
     - name: repo
@@ -145,7 +145,7 @@ spec:
   tasks:
     - name: build
       taskRef:
-        name: od-buildah
+        name: inf-build
         kind: Task
       resources:
         inputs:
@@ -156,7 +156,7 @@ spec:
             resource: build-image
     - name: dataset
       taskRef:
-        name: od-dataset
+        name: inf-dataset
         kind: Task
       resources:
         inputs:
@@ -169,7 +169,7 @@ spec:
         - build
     - name: run
       taskRef:
-        name: od-run
+        name: inf-run
         kind: Task
       resources:
         inputs:
