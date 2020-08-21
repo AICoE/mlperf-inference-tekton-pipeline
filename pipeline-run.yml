@@ -2,24 +2,21 @@
 apiVersion: tekton.dev/v1alpha1
 kind: PipelineRun
 metadata:
-  name: inf-test-pr
+  name: inference-pr
 spec:
-  serviceAccountName: selbi
+  serviceAccountName: mlperf
   pipelineRef:
-    name: inf-test-pl
+    name: inference-pl
   timeout: "0"
   resources:
   - name: repo
     resourceRef:
-      name: od-repo
+      name: inf-repo
   - name: build-image
     resourceRef:
-      name: od-build-image
+      name: inf-build-image
   podTemplate:
     volumes:
-    - name: od-dataset-volume
+    - name: inf-volume
       persistentVolumeClaim:
         claimName: od-pvc
-    - name: od-runtime-volume
-      persistentVolumeClaim:
-        claimName: od-runtime-pvc
