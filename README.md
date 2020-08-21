@@ -47,9 +47,8 @@ And then execute the `setup_and_start.sh` script:
 ```bash
 ./setup_and_start.sh
 ```
-If it says `-bash: ./setup_and_start.sh: Permission denied`, execute the following commands to give permission:
+If it says `-bash: ./setup_and_start.sh: Permission denied`, execute the following command to give permission:
 ```bash
-chmod +u setup_and_start.sh
 chmod +x setup_and_start.sh
 ```
 
