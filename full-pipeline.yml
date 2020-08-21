@@ -123,7 +123,7 @@ spec:
           mountPath: /root/v0.5/classification_and_detection/dataset
       securityContext:
         privileged: true
-      command: ["./run_local.sh", "onnxruntime", "ssd-mobilenet", "cpu", "--config", "/root/v0.5/mlperf.conf"]
+      command: ["./run_local.sh", "onnxruntime", "ssd-mobilenet", "cpu"]
       resources:
         requests:
           memory: 100Gi
