@@ -19,4 +19,4 @@ spec:
     volumes:
     - name: inf-volume
       persistentVolumeClaim:
-        claimName: od-pvc
+        claimName: inf-pvc
