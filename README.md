@@ -92,7 +92,7 @@ persistentvolumeclaim/inf-pvc created
 task.tekton.dev/inf-build created
 task.tekton.dev/inf-dataset created
 task.tekton.dev/inf-run created
-pipeline.tekton.dev/inference-pl createdoc 
+pipeline.tekton.dev/inference-pl created
 ```
 
 Execution of `oc apply -f pipeline-run.yml` runs the pipeline and shows the following:
@@ -133,7 +133,7 @@ And logs should appear. Remember to change the pod name to the one generated on 
 
 Step `push`, `download` and `run` could be checked similarly. Remember that `download` and `run` steps each will have a different pod and a pod name.
 
-Once pipeline run is complete, `oc get pods` outputs:
+Once pipeline run is complete, `oc get pods` outputs something similar to:
 ```bash
 NAME                                  READY     STATUS      RESTARTS   AGE
 inference-pr-build-5gkgd-pod-b4q9n     0/5       Completed   0          2h
@@ -160,7 +160,7 @@ ENDING RUN AT 2020-08-21 04:14:09 PM
 
 To determine the duration of the inference benchmark, take the difference between **STARTING RUN AT** and **ENDING RUN AT**.
 
-The pipeline-run has been completed! All tasks, pipelinerources, pipeline, pipeline-run and pvc can then be deleted if not needed anymore by executing `cleanup.sh`:
+The pipeline-run has been completed! All tasks, pipelinerources, pipeline, pipeline-run and pvc can then be deleted if not needed anymore by executing:
 ```bash
 ./cleanup.sh
 ```
@@ -193,6 +193,8 @@ Open `download_dataset.sh` file in the forked repository and edit the file. Chan
 wget -q https://zenodo.org/record/3163026/files/ssd_mobilenet_v1_coco_2018_01_28.onnx
 ```
 Commit changes.
+
+The directory of the new model should also be updated in `run_local.sh`.
 
 In the `full-pipeline.yml`, scroll down to `run` task and change the `command` line:
 ```bash
